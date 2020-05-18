@@ -66,7 +66,7 @@ void Tick(){
                         break;
                 case OFF_Release:
 			if((~PINA & 0xFF) == 0x01){
-				set_PWM(arr[0]);
+				set_PWM(arr[cnt]);
 				state = ON_Press;
 			}
 			else if((~PINA & 0xFF) == 0x00){
@@ -75,7 +75,6 @@ void Tick(){
 			break;
 		case ON_Press:
 			if((~PINA & 0xFF) == 0x01){
-				set_PWM(arr[0]);
 				state = ON_Press;
 			}
 			else if((~PINA & 0xFF) == 0x00){
@@ -101,7 +100,6 @@ void Tick(){
 				state = ON_Release;
 			}
 			else if((~PINA & 0xFF) == 0x01){
-				cnt = 0;
 				set_PWM(0);
 				state = OFF_Press;
 			}
@@ -122,7 +120,6 @@ void Tick(){
 				state = ON_Release;
 			}
 			else if((~PINA & 0xFF) == 0x01){
-				cnt = 0;
 				state = OFF_Press;
 			}
 			break;
@@ -134,7 +131,6 @@ void Tick(){
 				state = ON_Release;
 			}
 			else if((~PINA & 0xFF) == 0x01){
-				cnt = 0;
 				state = OFF_Press;
 			}
 			break;

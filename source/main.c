@@ -1,18 +1,16 @@
 /*	Author: gyama009
  *  Partner(s) Name: 
  *	Lab Section: 022
- *	Assignment: Lab #9 Exercise #3
+ *	Assignment: Lab #9 Exercise #2
  *	Exercise Description: [optional - include for your own benefit]
  *
  *	I acknowledge all content contained herein, excluding template or example
  *	code, is my own original work.
  */
 #include <avr/io.h>
-#include <avr/interrupt.h>
 #ifdef _SIMULATE_
 #include "simAVRHeader.h"
 #endif
-#include "timer.h"
 
 // 0.954 hz is lowest frequency possible with this function, 
 // based on settings in PWM_on()
@@ -56,63 +54,84 @@ void PWM_off(){
 }
 
 unsigned char cnt;
-unsigned char holdval;
-unsigned char spaceval;
-double song[21] = {349.23, 349.23, 293.66, 349.23, 261.63, 349.23, 293.66, 261.63, 349.23, 261.63, 523.25, 587.32, 523.25, 587.32, 523.25, 261.63, 466.16, 440.00, 392.00, 349.23, 698.46};
-unsigned char hold[21] = {4, 4, 1, 6, 1, 1, 1, 1, 12, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 8, 2};
-unsigned char space[21] = {2, 2, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 4, 1};
+double arr[8] = {261.63, 293.66, 329.63, 349.23, 392.00, 440.00, 493.88, 523.25};
 
-enum States{Start, OFF, SONG, HOLD, SPACE} state;
+enum States{Start, OFF_Release, ON_Press, ON_Release, OFF_Press, Increment, Decrement} state;
 
 void Tick(){
         switch(state){
                 case Start: // Initial transition
-                        cnt = 0;
-			holdval = 0;
-			spaceval = 0;
-			state = OFF;
+                        state = OFF_Release;
+			cnt = 0;
+                        break;
+                case OFF_Release:
+			if((~PINA & 0xFF) == 0x01){
+				set_PWM(arr[cnt]);
+				state = ON_Press;
+			}
+			else if((~PINA & 0xFF) == 0x00){
+				state = OFF_Release;
+			}
 			break;
-		case OFF:
-			if((~PINA & 0xFF) == 0x00){
-				state = OFF;
+		case ON_Press:
+			if((~PINA & 0xFF) == 0x01){
+				state = ON_Press;
+			}
+			else if((~PINA & 0xFF) == 0x00){
+				state = ON_Release;
+			}
+			break;
+		case ON_Release:
+			if((~PINA & 0xFF) == 0x02){
+				if(cnt <= 6){
+					cnt++;
+					set_PWM(arr[cnt]);
+				}
+				state = Increment;
+			}
+			else if((~PINA & 0xFF) == 0x04){
+				if(cnt >= 1){
+					cnt--;
+					set_PWM(arr[cnt]);
+				}
+				state = Decrement;
+			}
+			else if((~PINA & 0xFF) == 0x00){
+				state = ON_Release;
 			}
 			else if((~PINA & 0xFF) == 0x01){
-				cnt = 0;
-				state = SONG;
-			}
-			break;
-		case SONG:
-			if(cnt >= 21 && ((~PINA & 0xFF) == 0x00)){
-				state = OFF;
-			}
-			else if(cnt < 21){
-				holdval = 0;
-				state = HOLD;
-			}
-			else if((cnt >= 21) && ((~PINA & 0xFF) == 0x01)){
-				state = SONG;
-			}
-			break;
-		case HOLD:
-			if(holdval < hold[cnt]){
-				holdval++;
-				state = HOLD;
-			}
-			else if(holdval >= hold[cnt]){
-				state = SPACE;
-			}
-			break;
-		case SPACE:
-			if(spaceval < space[cnt]){
 				set_PWM(0);
-				spaceval++;
-				state = SPACE;
+				state = OFF_Press;
 			}
-			else if(spaceval >= space[cnt]){
-				holdval = 0;
-				spaceval = 0;
-				cnt++;
-				state = SONG;
+			break;
+		case OFF_Press:
+			if((~PINA & 0xFF) == 0x01){
+				state = OFF_Press;
+			}
+			else if((~PINA & 0xFF) == 0x00){
+				state = OFF_Release;
+			}
+			break;
+		case Increment:
+			if((~PINA & 0xFF) == 0x02){
+				state = Increment;
+			}
+			else if((~PINA & 0xFF) == 0x00){
+				state = ON_Release;
+			}
+			else if((~PINA & 0xFF) == 0x01){
+				state = OFF_Press;
+			}
+			break;
+		case Decrement:
+			if((~PINA & 0xFF) == 0x04){
+				state = Decrement;
+			}
+			else if((~PINA & 0xFF) == 0x00){
+				state = ON_Release;
+			}
+			else if((~PINA & 0xFF) == 0x01){
+				state = OFF_Press;
 			}
 			break;
                 default:
@@ -120,18 +139,18 @@ void Tick(){
                         break;
         } // Transitions
         switch(state){ // State actions
-		case OFF:
-			set_PWM(0);
-			break;
-		case SONG:
-			if(cnt < 21){
-				set_PWM(song[cnt]);
-			}
-			break;
-		case HOLD:
-			break;
-		case SPACE:
-			break;
+		case OFF_Release:
+                        break;
+                case ON_Press:
+                        break;
+                case ON_Release:
+                        break;
+                case OFF_Press:
+                        break;
+                case Increment:
+                        break;
+                case Decrement:
+                        break;
                 default:
                         break;
         } // State actions
@@ -142,12 +161,8 @@ int main(void) {
 	DDRB = 0x40; PORTB = 0x00; // Configure port B's 8 pins as output
 	PWM_on();
 	state = Start;
-	TimerSet(50);
-	TimerOn();
 	while (1) {
 		Tick();
-		while(!TimerFlag){}
-		TimerFlag = 0;
 	}
 	PWM_off();
 	return 0;
